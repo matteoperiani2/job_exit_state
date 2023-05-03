@@ -1,1 +1,1 @@
-# job_exit_state
+# Prediction on job exist state on HPC enviroment
