@@ -3,14 +3,17 @@ import numpy as np
 import pandas as pd
 from matplotlib import pyplot as plt
 from sklearn.metrics import ConfusionMatrixDisplay, confusion_matrix, precision_recall_fscore_support
+import tensorflow as tf
+from tensorflow import keras
+from tqdm import tqdm
 
 
 def seed_everything(seed: int = 42):
     random.seed(seed)
     np.random.seed(seed)
-    # tf.random.set_seed(seed)
-    # tf.keras.utils.set_random_seed(seed)
-    # tf.config.experimental.enable_op_determinism()
+    tf.random.set_seed(seed)
+    tf.keras.utils.set_random_seed(seed)
+    tf.config.experimental.enable_op_determinism()
 
 
 def get_data(path):
@@ -20,23 +23,61 @@ def get_data(path):
     return df.to_numpy(), labels.to_numpy()
 
 
-def evaluate_model(model, x_train, x_val, y_train, y_val, average="binary"):
-    train_predict = model.predict(x_train)
-    val_predict = model.predict(x_val)
+def evaluate_model(model, x_test, y_test, average="binary"):
+    pred = model.predict(x_test)
 
-    t_precision, t_recall, t_f1, _ = precision_recall_fscore_support(y_train, train_predict, beta=1.5, average=average)
-    v_precision, v_recall, v_f1, _ = precision_recall_fscore_support(y_val, val_predict, beta=1.5, average=average)
-    print(f"F1:\n - train set:\t\t{t_f1:.3f}\n - validation set:\t{v_f1:.3f}")
-    print(f"Recall:\n - train set:\t\t{t_recall:.3f}\n - validation set:\t{v_recall:.3f}")
-    print(f"Precision:\n - train set:\t\t{t_precision:.3f}\n - validation set:\t{v_precision:.3f}")
+    prec, rec, f1, _ = precision_recall_fscore_support(y_test, pred, beta=1.5, average=average)
+    print(f"F1:\t\t{f1:.3f}")
+    print(f"Recall:\t\t{rec:.3f}")
+    print(f"Precision:\t{prec:.3f}")
 
-    train_cm = confusion_matrix(y_train, train_predict)
-    val_cm = confusion_matrix(y_val, val_predict)
+    cm = confusion_matrix(y_test, pred)
 
-    _, (ax1, ax2) = plt.subplots(1, 2, figsize=(13, 5))
-    ConfusionMatrixDisplay(confusion_matrix=train_cm).plot(ax=ax1, colorbar=False)
-    ConfusionMatrixDisplay(confusion_matrix=val_cm).plot(ax=ax2,  colorbar=False)
-    ax1.set_title("Confusion Matrix on train set")
-    ax2.set_title("Confusion Matrix on val set")
+    ConfusionMatrixDisplay(confusion_matrix=cm).plot(colorbar=False)
+    plt.title("Confusion Matrix on test set")
     plt.show()
 
+
+def build_cnn_model(input_shape, output_shape, stages, convs):
+    model_in = keras.Input(shape=input_shape)
+    x = model_in
+    filters = 128
+    for s in range(stages):
+        for _ in range(convs):
+            x = keras.layers.Conv1D(filters=filters, kernel_size=3, activation='relu',  strides=1, padding="causal")(x)
+        x = keras.layers.MaxPooling1D()(x)
+        filters *= 2
+    x = keras.layers.Flatten()(x)
+    x = keras.layers.Dropout(0.2)(x)
+    x = keras.layers.Dense(256, activation="relu")(x)
+    x = keras.layers.Dense(64, activation="relu")(x)
+    model_out = keras.layers.Dense(output_shape, activation="sigmoid")(x)
+    model = keras.Model(model_in, model_out)
+    return model
+
+
+def max_depth_dt_tuning(models, samples, labels, cv_fn):
+    cv_scores_list = []
+    cv_scores_std = []
+    cv_scores_mean = []
+    for model in tqdm(models):
+        cv_scores = cv_fn(model, samples, labels, cv=5, scoring="f1")
+        cv_scores_list.append(cv_scores)
+        cv_scores_mean.append(cv_scores.mean())
+        cv_scores_std.append(cv_scores.std())
+    cv_scores_mean = np.array(cv_scores_mean)
+    cv_scores_std = np.array(cv_scores_std)
+
+    return cv_scores_mean, cv_scores_std
+
+def plot_max_depth_tuning(depths, cv_scores_mean, cv_scores_std):
+    fig, ax = plt.subplots(1,1, figsize=(15,5))
+    ax.plot(depths, cv_scores_mean, '-o', label='mean cross-validation f1', alpha=0.9)
+    ax.fill_between(depths, cv_scores_mean-2*cv_scores_std, cv_scores_mean+2*cv_scores_std, alpha=0.2)
+    ylim = plt.ylim()
+    ax.set_title('F1 per decision tree depth on training data', fontsize=16)
+    ax.set_xlabel('Tree depth', fontsize=14)
+    ax.set_ylabel('F1', fontsize=14)
+    ax.set_ylim(ylim)
+    ax.set_xticks(range(1, max(depths), 5))
+    ax.legend()
