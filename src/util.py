@@ -33,12 +33,12 @@ def evaluate_model(model, x_train, y_train, x_val, y_val, average="binary"):
     print(f"Recall:\t\ttrain={train_rec:.3f}, validation={val_rec:.3f}")
     print(f"Precision:\ttrain={train_prec:.3f}, validation={val_prec:.3f}")
 
-    cm_train = confusion_matrix(y_train, train_pred)
-    cm_val = confusion_matrix(y_val, val_pred)
+    cm_train = confusion_matrix(y_train, train_pred, normalize='all')
+    cm_val = confusion_matrix(y_val, val_pred, normalize='all')
 
-    _, (ax1, ax2) = plt.subplots(1, 2, figsize=(10,7))
-    ConfusionMatrixDisplay(confusion_matrix=cm_train).plot(colorbar=False, ax=ax1)
-    ConfusionMatrixDisplay(confusion_matrix=cm_val).plot(colorbar=False, ax=ax2)
+    _, (ax1, ax2) = plt.subplots(1, 2, figsize=(12,7))
+    ConfusionMatrixDisplay(confusion_matrix=cm_train ,display_labels=['COMPLETED', 'FAILED']).plot(colorbar=False, ax=ax1)
+    ConfusionMatrixDisplay(confusion_matrix=cm_val, display_labels=['COMPLETED', 'FAILED']).plot(colorbar=False, ax=ax2)
     ax1.set_title("Confusion Matrix on train set")
     ax2.set_title("Confusion Matrix on validation set")
     plt.show()
@@ -90,3 +90,5 @@ def tune_regressor(regs, samples, labels, cv_fn):
     cv_scores_std = np.array(cv_scores_std)
 
     return cv_scores_mean, cv_scores_std
+
+
