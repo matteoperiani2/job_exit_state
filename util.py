@@ -408,3 +408,40 @@ def plot_bars(data, figsize=figsize, tick_gap=1):
         plt.xticks(x[::tick_gap], data.index[::tick_gap], rotation=45)
     plt.tight_layout()
 """
+
+# Plotting of dataset points
+def show_space(data, labels, n_comp, x_coord_conflict_area=[0,0], y_coord_conflict_area=[0,0], x_coord_good=[0,0], y_coord_good=[0,0]):
+    tsne = TSNE(n_components=n_comp)    
+    low_dim_data = tsne.fit_transform(data)
+    tsne_df = pd.DataFrame(low_dim_data)
+    if n_comp == 2:
+        fig, ax = plt.subplots(1, 1, figsize=(12, 10))
+        ax = sns.scatterplot(data=tsne_df, x=0, y=1, hue=labels)
+        ax.set_yticks(np.arange(-120,120,5))
+        ax.set_xticks(np.arange(-120,120,5))
+        # plt.axvspan(-40, -30, color='red', alpha=0.5)
+        # plt.ayvspan(25, 40, color='red', alpha=0.5)
+        x_slice = abs(x_coord_conflict_area[1] - x_coord_conflict_area[0])
+        y_slice = abs(y_coord_conflict_area[1] - y_coord_conflict_area[0])
+        ax.add_patch(matplotlib.patches.Rectangle((x_coord_conflict_area[0], y_coord_conflict_area[0]), x_slice, y_slice, linewidth=2, edgecolor='red', facecolor='none'))
+        x_slice = abs(x_coord_good[1] - x_coord_good[0])
+        y_slice = abs(y_coord_good[1] - y_coord_good[0])
+        ax.add_patch(matplotlib.patches.Rectangle((x_coord_good[0], y_coord_good[0]), x_slice, y_slice, linewidth=2, edgecolor='green', facecolor='none'))
+        plt.xticks(rotation = "vertical")
+        plt.grid()
+        plt.show()
+    else:
+        fig, ax = plt.subplots(1, 1, figsize=(12, 10))
+        ax = fig.add_subplot(111, projection = '3d')
+        x = tsne_df[0]
+        y = tsne_df[1]
+        z = tsne_df[2]
+        label = np.where(labels == "COMPLETED", "green", labels)
+        label = np.where(label == "FAILED", "red", label)
+        label = np.where(label == "TIMEOUT", "orange", label)
+        label = np.where(label == "OUT_OF_MEMORY", "blue", label)
+        ax.scatter(x, y, z, c=label)
+        plt.legend(labels)
+        plt.grid()
+        plt.show()
+    return tsne_df
